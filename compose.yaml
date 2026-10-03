@@ -1,0 +1,27 @@
+services:
+  psql:
+    image: postgres:16
+    container_name: psql
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?.env에 POSTGRES_DB를 설정하세요}
+      POSTGRES_USER: ${POSTGRES_USER:?.env에 POSTGRES_USER를 설정하세요}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env에 POSTGRES_PASSWORD를 설정하세요}
+      TZ: Asia/Seoul
+
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    volumes:
+      - psql_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  psql_data:
+    name: psql_data
