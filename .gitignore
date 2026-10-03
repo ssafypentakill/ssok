@@ -35,3 +35,16 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Env ###
+.env
+.env.*
+!.env.example
+
+### Secrets ###
+*.pem
+*.p8
+*.key
+
+### macOS ###
+.DS_Store
