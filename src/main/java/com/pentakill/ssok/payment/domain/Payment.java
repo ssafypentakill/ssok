@@ -1,6 +1,7 @@
 package com.pentakill.ssok.payment.domain;
 
 import lombok.Getter;
+import org.yaml.snakeyaml.emitter.ScalarAnalysis;
 
 import java.time.LocalDateTime;
 
@@ -12,6 +13,8 @@ public class Payment {
     private PaymentStatus status;
     private String paymentKey;
     private LocalDateTime approvedAt;
+    private LocalDateTime canceledAt;
+    private String cancelReason;
 
     private Payment(Long orderId, Long memberId, long amount) {
         this.orderId = orderId;
@@ -61,6 +64,21 @@ public class Payment {
     public void markUnknown() {
         validateInProgress();
         this.status = PaymentStatus.UNKNOWN;
+    }
+
+    public void cancel(String cancelReason, LocalDateTime canceledAt) {
+        if (status != PaymentStatus.APPROVED) {
+            throw new IllegalStateException("승인된 결제만 취소할 수 있습니다. 현재 상태: " + status);
+        }
+        if (cancelReason == null || cancelReason.isBlank()) {
+            throw new IllegalArgumentException("취소 사유는 필수입니다.");
+        }
+        if (canceledAt == null) {
+            throw new IllegalArgumentException("취소 시각은 필수입니다.");
+        }
+        this.cancelReason = cancelReason;
+        this.canceledAt = canceledAt;
+        this.status = PaymentStatus.CANCELED;
     }
 
     private void validateInProgress() {

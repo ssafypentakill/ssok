@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class PaymentTest {
 
@@ -17,6 +19,7 @@ class PaymentTest {
     private static final long AMOUNT = 30_000L;
     private static final String PAYMENT_KEY = "pay_test_key";
     private static final LocalDateTime APPROVED_AT = LocalDateTime.of(2026, 10, 12, 14, 0);
+    private static final LocalDateTime CANCELED_AT = LocalDateTime.of(2026, 10, 13, 10, 0);
 
     @Nested
     @DisplayName("결제 준비")
@@ -66,7 +69,7 @@ class PaymentTest {
         }
 
         @ParameterizedTest
-        @EnumSource(value = PaymentStatus.class, names = {"IN_PROGRESS", "APPROVED", "UNKNOWN"})
+        @EnumSource(value = PaymentStatus.class, names = {"READY", "FAILED"}, mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("READY, FAILED가 아니면 승인을 시작할 수 없다")
         void rejectsOtherStatuses(PaymentStatus status) {
             Payment payment = paymentWithStatus(status);
@@ -104,7 +107,7 @@ class PaymentTest {
         }
 
         @ParameterizedTest
-        @EnumSource(value = PaymentStatus.class, names = {"READY", "APPROVED", "FAILED", "UNKNOWN"})
+        @EnumSource(value = PaymentStatus.class, names = "IN_PROGRESS", mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("IN_PROGRESS가 아니면 승인할 수 없고, 상태가 그대로 남는다")
         void rejectsOtherStatuses(PaymentStatus status) {
             Payment payment = paymentWithStatus(status);
@@ -150,7 +153,7 @@ class PaymentTest {
         }
 
         @ParameterizedTest
-        @EnumSource(value = PaymentStatus.class, names = {"READY", "APPROVED", "FAILED", "UNKNOWN"})
+        @EnumSource(value = PaymentStatus.class, names = "IN_PROGRESS", mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("IN_PROGRESS가 아니면 실패나 결과 모름으로 바꿀 수 없다")
         void rejectsOtherStatuses(PaymentStatus status) {
             Payment payment = paymentWithStatus(status);
@@ -158,6 +161,57 @@ class PaymentTest {
             assertThatThrownBy(payment::fail).isInstanceOf(IllegalStateException.class);
             assertThatThrownBy(payment::markUnknown).isInstanceOf(IllegalStateException.class);
             assertThat(payment.getStatus()).isEqualTo(status);
+        }
+    }
+
+    @Nested
+    @DisplayName("결제 취소")
+    class Cancel {
+
+        @Test
+        @DisplayName("APPROVED인 결제를 취소하면 CANCELED가 되고 사유와 시각이 기록된다")
+        void cancelsApproved() {
+            Payment payment = paymentWithStatus(PaymentStatus.APPROVED);
+
+            payment.cancel("단순 변심", CANCELED_AT);
+
+            assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+            assertThat(payment.getCancelReason()).isEqualTo("단순 변심");
+            assertThat(payment.getCanceledAt()).isEqualTo(CANCELED_AT);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = PaymentStatus.class, names = "APPROVED", mode = EnumSource.Mode.EXCLUDE)
+        @DisplayName("APPROVED가 아니면 취소할 수 없고, 상태가 그대로 남는다")
+        void rejectsOtherStatuses(PaymentStatus status) {
+            Payment payment = paymentWithStatus(status);
+
+            assertThatThrownBy(() -> payment.cancel("단순 변심", CANCELED_AT))
+                    .isInstanceOf(IllegalStateException.class);
+            assertThat(payment.getStatus()).isEqualTo(status);
+        }
+
+        @ParameterizedTest
+        @NullAndEmptySource
+        @ValueSource(strings = {"   "})
+        @DisplayName("취소 사유가 없거나 공백이면 취소할 수 없다")
+        void rejectsBlankReason(String cancelReason) {
+            Payment payment = paymentWithStatus(PaymentStatus.APPROVED);
+
+            assertThatThrownBy(() -> payment.cancel(cancelReason, CANCELED_AT))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThat(payment.getStatus()).isEqualTo(PaymentStatus.APPROVED);
+            assertThat(payment.getCancelReason()).isNull();
+        }
+
+        @Test
+        @DisplayName("취소 시각이 없으면 취소할 수 없다")
+        void rejectsNullCanceledAt() {
+            Payment payment = paymentWithStatus(PaymentStatus.APPROVED);
+
+            assertThatThrownBy(() -> payment.cancel("단순 변심", null))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThat(payment.getStatus()).isEqualTo(PaymentStatus.APPROVED);
         }
     }
 
@@ -172,7 +226,10 @@ class PaymentTest {
             case APPROVED -> payment.approve(APPROVED_AT);
             case FAILED -> payment.fail();
             case UNKNOWN -> payment.markUnknown();
-            default -> throw new IllegalArgumentException("테스트에서 만들 수 없는 상태입니다: " + status);
+            case CANCELED -> {
+                payment.approve(APPROVED_AT);
+                payment.cancel("테스트 취소", CANCELED_AT);
+            }
         }
         return payment;
     }
