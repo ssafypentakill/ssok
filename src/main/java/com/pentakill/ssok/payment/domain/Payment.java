@@ -1,20 +1,63 @@
 package com.pentakill.ssok.payment.domain;
 
-import lombok.Getter;
-import org.yaml.snakeyaml.emitter.ScalarAnalysis;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Getter
+@Entity
+@Table(
+        name = "payments",
+        uniqueConstraints = @UniqueConstraint(name = "uk_payments_order_id", columnNames = "order_id")
+)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Payment {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
     private Long orderId;
+
+    @Column(nullable = false)
     private Long memberId;
+
+    @Column(nullable = false)
     private long amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
     private PaymentStatus status;
+
+    @Column(length = 200)
     private String paymentKey;
+
     private LocalDateTime approvedAt;
+
     private LocalDateTime canceledAt;
+
+    @Column(length = 200)
     private String cancelReason;
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
 
     private Payment(Long orderId, Long memberId, long amount) {
         this.orderId = orderId;
