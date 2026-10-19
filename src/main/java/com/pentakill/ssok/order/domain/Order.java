@@ -98,4 +98,16 @@ public class Order {
                 totalAmount
         );
     }
+    public void markPaid(){
+        if(this.status != OrderStatus.PENDING_PAYMENT){
+            throw  new IllegalStateException("결제 대기 주문만 결제 완료로 바꿀 수 있습니다.");
+        }
+        this.status = OrderStatus.PAID;
+    }
+    public void markCanceled(){
+        if(this.status == OrderStatus.CANCELED){
+            throw new IllegalStateException("이미 취소된 주문입니다.");
+        }
+        this.status = OrderStatus.CANCELED;
+    }
 }
