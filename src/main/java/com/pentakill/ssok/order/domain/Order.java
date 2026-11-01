@@ -19,9 +19,14 @@ public class Order {
     @Column(name = "order_id")
     private Long id;
 
-    @Column(name = "member_id", nullable = false)
+    @Column(name = "user_id", nullable = false)
     private Long memberId;
 
+    @Column(name="shipping_address_id", nullable=false)
+    private Long deliveryId;
+
+    @Column(name = "order_item_id", nullable = false)
+    private Long orderItemId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "order_status", nullable = false, length = 20)
@@ -34,21 +39,6 @@ public class Order {
     @Column(name = "is_deleted", nullable = false)
     private Boolean deleted;
 
-    @Column(name = "recipient_name", nullable = false, length = 100)
-    private String recipientName;
-
-    @Column(name = "recipient_phone", nullable = false, length = 30)
-    private String recipientPhone;
-
-    @Column(name = "postal_code", nullable = false, length = 10)
-    private String postalCode;
-
-    @Column(name = "address", nullable = false, length = 255)
-    private String address;
-
-    @Column(name = "address_detail", length = 255)
-    private String addressDetail;
-
     @Column(name = "shipping_fee", nullable = false)
     private long shippingFee;
 
@@ -57,20 +47,14 @@ public class Order {
 
     private Order(
             Long memberId,
-            String recipientName,
-            String recipientPhone,
-            String postalCode,
-            String address,
-            String addressDetail,
+            Long deliveryId,
+            Long orderItemId,
             long shippingFee,
             long totalAmount
     ) {
         this.memberId = memberId;
-        this.recipientName = recipientName;
-        this.recipientPhone = recipientPhone;
-        this.postalCode = postalCode;
-        this.address = address;
-        this.addressDetail = addressDetail;
+        this.deliveryId = deliveryId;
+        this.orderItemId = orderItemId;
         this.shippingFee = shippingFee;
         this.totalAmount = totalAmount;
         this.status = OrderStatus.PENDING_PAYMENT;
@@ -79,21 +63,15 @@ public class Order {
 
     public static Order create(
             Long memberId,
-            String recipientName,
-            String recipientPhone,
-            String postalCode,
-            String address,
-            String addressDetail,
+            Long deliveryId,
+            Long orderItemId,
             long shippingFee,
             long totalAmount
     ) {
         return new Order(
                 memberId,
-                recipientName,
-                recipientPhone,
-                postalCode,
-                address,
-                addressDetail,
+                deliveryId,
+                orderItemId,
                 shippingFee,
                 totalAmount
         );
