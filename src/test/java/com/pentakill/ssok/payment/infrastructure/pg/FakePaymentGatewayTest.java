@@ -1,6 +1,7 @@
 package com.pentakill.ssok.payment.infrastructure.pg;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.pentakill.ssok.payment.application.PgApprovalResult;
 import org.junit.jupiter.api.DisplayName;
@@ -40,5 +41,14 @@ class FakePaymentGatewayTest {
         PgApprovalResult result = gateway.approve(PAYMENT_KEY, ORDER_ID, AMOUNT);
 
         assertThat(result).isEqualTo(PgApprovalResult.APPROVED);
+    }
+
+    @Test
+    @DisplayName("취소는 항상 성공한다")
+    void alwaysCancels() {
+        FakePaymentGateway gateway = new FakePaymentGateway(1.0, 0, 0, () -> 0.0);
+
+        assertThatCode(() -> gateway.cancel(PAYMENT_KEY, "고객 요청"))
+                .doesNotThrowAnyException();
     }
 }

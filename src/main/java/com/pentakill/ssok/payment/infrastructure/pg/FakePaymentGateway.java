@@ -49,6 +49,11 @@ public class FakePaymentGateway implements PaymentGateway {
         return PgApprovalResult.APPROVED;
     }
 
+    @Override
+    public void cancel(String paymentKey, String cancelReason) {
+        waitForResponse();
+    }
+
     private boolean waitForResponse() {
         try {
             Thread.sleep(delayMillis);
