@@ -54,6 +54,11 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
+    public Payment getPayment(Long paymentId, Long memberId) {
+        return findOwnedPayment(paymentId, memberId);
+    }
+
+    @Transactional(readOnly = true)
     public Payment findCancelablePayment(Long paymentId, Long memberId) {
         Payment payment = findOwnedPayment(paymentId, memberId);
         if (payment.getStatus() != PaymentStatus.APPROVED) {

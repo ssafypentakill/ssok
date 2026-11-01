@@ -28,6 +28,12 @@ public class PaymentController {
         return PaymentResponse.from(payment);
     }
 
+    @GetMapping("/{paymentId}")
+    public PaymentResponse getPayment(@RequestHeader("X-Member-Id") Long memberId, @PathVariable Long paymentId) {
+        Payment payment = paymentService.getPayment(paymentId, memberId);
+        return PaymentResponse.from(payment);
+    }
+
     @PostMapping("/{paymentId}/approve")
     public ResponseEntity<PaymentResponse> approve(
             @RequestHeader("X-Member-Id") Long memberId,
