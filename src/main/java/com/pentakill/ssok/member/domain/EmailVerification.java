@@ -5,7 +5,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -23,10 +23,10 @@ public class EmailVerification {
     private String email;
 
     @Column(name = "expires_at", nullable = false)
-    private Instant expiresAt;
+    private LocalDateTime expiresAt;
 
     @Column(name = "verified_at")
-    private Instant verifiedAt;
+    private LocalDateTime verifiedAt;
 
     @Column(name = "code_hash", nullable = false, length = 255)
     private String codeHash;
@@ -35,7 +35,7 @@ public class EmailVerification {
     private int attemptCount;
 
     @Builder
-    private EmailVerification(String email, String codeHash, Instant expiresAt) {
+    private EmailVerification(String email, String codeHash, LocalDateTime expiresAt) {
         if (email == null || email.isBlank() || email.length() > 254) {
             throw new IllegalArgumentException("Invalid email");
         }
@@ -44,11 +44,11 @@ public class EmailVerification {
         reissue(codeHash, expiresAt);
     }
 
-    public boolean isExpired(Instant now) { return !now.isBefore(expiresAt); }
+    public boolean isExpired(LocalDateTime now) { return !now.isBefore(expiresAt); }
     public boolean isAttemptLimitReached() { return attemptCount >= MAX_ATTEMPTS; }
     public boolean isVerified() { return verifiedAt != null; }
 
-    public void reissue(String codeHash, Instant expiresAt) {
+    public void reissue(String codeHash, LocalDateTime expiresAt) {
         if (codeHash == null || codeHash.isBlank() || codeHash.length() > 255 || expiresAt == null) {
             throw new IllegalArgumentException("Invalid verification data");
         }
@@ -58,21 +58,21 @@ public class EmailVerification {
         this.attemptCount = 0;
     }
 
-    public void increaseAttemptCount(Instant now) {
+    public void increaseAttemptCount(LocalDateTime now) {
         requireUsable(now);
         attemptCount++;
     }
 
-    public void markVerified(Instant now) {
+    public void markVerified(LocalDateTime now) {
         requireUsable(now);
         verifiedAt = now;
     }
 
-    public boolean canSignup(Instant now) {
+    public boolean canSignup(LocalDateTime now) {
         return isVerified() && !isExpired(now) && !isAttemptLimitReached();
     }
 
-    private void requireUsable(Instant now) {
+    private void requireUsable(LocalDateTime now) {
         if (isExpired(now) || isAttemptLimitReached() || isVerified()) {
             throw new IllegalStateException("Verification is not usable");
         }

@@ -5,7 +5,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
@@ -37,10 +37,10 @@ public class ShippingAddress {
     private String addressDetail;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
 
     @Builder
     private ShippingAddress(Member member, String recipientName, String recipientPhone,
@@ -73,11 +73,13 @@ public class ShippingAddress {
 
     @PrePersist
     private void onCreate() {
-        Instant now = Instant.now();
+        LocalDateTime now = LocalDateTime.now();
         createdAt = now;
         updatedAt = now;
     }
 
     @PreUpdate
-    private void onUpdate() { updatedAt = Instant.now(); }
+    private void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

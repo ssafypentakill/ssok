@@ -5,7 +5,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "\"user\"", uniqueConstraints = @UniqueConstraint(name = "uk_user_email", columnNames = "email"))
@@ -32,10 +32,10 @@ public class Member {
     private String status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
 
     // Current scope: local registration only. Do not accept provider/status from the client.
     @Builder
@@ -57,11 +57,13 @@ public class Member {
 
     @PrePersist
     private void onCreate() {
-        Instant now = Instant.now();
+        LocalDateTime now = LocalDateTime.now();
         createdAt = now;
         updatedAt = now;
     }
 
     @PreUpdate
-    private void onUpdate() { updatedAt = Instant.now(); }
+    private void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }
