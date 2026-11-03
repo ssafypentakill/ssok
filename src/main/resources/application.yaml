@@ -28,7 +28,7 @@ spring:
       "[mail.smtp.timeout]": 5000
       "[mail.smtp.writetimeout]": 5000
 
-  member:
-    email-verification:
-      hmac-secret: ${EMAIL_VERIFICATION_HMAC_SECRET}
-      from-address: ${SMTP_FROM_ADDRESS}
+member:
+  email-verification:
+    hmac-secret: ${EMAIL_VERIFICATION_HMAC_SECRET}
+    from-address: ${SMTP_FROM_ADDRESS}
