@@ -182,6 +182,41 @@ class PaymentServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("결제 조회")
+    class GetPayment {
+
+        @Test
+        @DisplayName("내 결제를 조회할 수 있다")
+        void returnsOwnPayment() {
+            PaymentService service = serviceWith(payableOrder());
+            Payment saved = savedPaymentWithStatus(PaymentStatus.APPROVED);
+
+            Payment payment = service.getPayment(saved.getId(), MEMBER_ID);
+
+            assertThat(payment).isSameAs(saved);
+        }
+
+        @Test
+        @DisplayName("없는 결제면 404 예외가 난다")
+        void rejectsMissingPayment() {
+            PaymentService service = serviceWith(payableOrder());
+
+            assertThatThrownBy(() -> service.getPayment(999L, MEMBER_ID))
+                    .isInstanceOf(EntityNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("남의 결제면 404 예외가 난다")
+        void rejectsOtherMembersPayment() {
+            PaymentService service = serviceWith(payableOrder());
+            Payment saved = savedPaymentWithStatus(PaymentStatus.APPROVED);
+
+            assertThatThrownBy(() -> service.getPayment(saved.getId(), OTHER_MEMBER_ID))
+                    .isInstanceOf(EntityNotFoundException.class);
+        }
+    }
+
     private PaymentService serviceWith(OrderInfo order) {
         OrderReader orderReader = orderId -> Optional.ofNullable(order);
         return new PaymentService(orderReader, paymentRepository);

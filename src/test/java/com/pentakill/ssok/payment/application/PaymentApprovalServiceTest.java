@@ -58,9 +58,16 @@ class PaymentApprovalServiceTest {
 
     private PaymentApprovalService serviceWith(PgApprovalResult pgResult) {
         PaymentService paymentService = new PaymentService(orderId -> Optional.empty(), paymentRepository);
-        PaymentGateway paymentGateway = (paymentKey, orderId, amount) -> {
-            pgCalls.incrementAndGet();
-            return pgResult;
+        PaymentGateway paymentGateway = new PaymentGateway() {
+            @Override
+            public PgApprovalResult approve(String paymentKey, Long orderId, long amount) {
+                pgCalls.incrementAndGet();
+                return pgResult;
+            }
+
+            @Override
+            public void cancel(String paymentKey, String cancelReason) {
+            }
         };
         return new PaymentApprovalService(paymentService, paymentGateway);
     }

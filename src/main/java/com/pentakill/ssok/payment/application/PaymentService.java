@@ -4,9 +4,9 @@ import com.pentakill.ssok.payment.domain.Payment;
 import com.pentakill.ssok.payment.domain.PaymentRepository;
 import com.pentakill.ssok.payment.domain.PaymentStatus;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -50,6 +50,28 @@ public class PaymentService {
             case UNKNOWN -> payment.markUnknown();
             case null -> throw  new IllegalArgumentException("PG 결과는 필수입니다.");
         }
+        return payment;
+    }
+
+    @Transactional(readOnly = true)
+    public Payment getPayment(Long paymentId, Long memberId) {
+        return findOwnedPayment(paymentId, memberId);
+    }
+
+    @Transactional(readOnly = true)
+    public Payment findCancelablePayment(Long paymentId, Long memberId) {
+        Payment payment = findOwnedPayment(paymentId, memberId);
+        if (payment.getStatus() != PaymentStatus.APPROVED) {
+            throw new IllegalStateException("승인된 결제만 취소할 수 있습니다. 현재 상태: " + payment.getStatus());
+        }
+        return payment;
+    }
+
+    @Transactional
+    public Payment completeCancel(Long paymentId, String cancelReason, LocalDateTime canceledAt) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
+        payment.cancel(cancelReason, canceledAt);
         return payment;
     }
 

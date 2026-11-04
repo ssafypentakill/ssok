@@ -1,10 +1,12 @@
 package com.pentakill.ssok.payment.presentation;
 
 import com.pentakill.ssok.payment.application.PaymentApprovalService;
+import com.pentakill.ssok.payment.application.PaymentCancelService;
 import com.pentakill.ssok.payment.application.PaymentService;
 import com.pentakill.ssok.payment.domain.Payment;
 import com.pentakill.ssok.payment.domain.PaymentStatus;
 import com.pentakill.ssok.payment.presentation.dto.ApprovePaymentRequest;
+import com.pentakill.ssok.payment.presentation.dto.CancelPaymentRequest;
 import com.pentakill.ssok.payment.presentation.dto.PaymentResponse;
 import com.pentakill.ssok.payment.presentation.dto.PreparePaymentRequest;
 import lombok.RequiredArgsConstructor;
@@ -18,10 +20,17 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentController {
     private final PaymentService paymentService;
     private final PaymentApprovalService paymentApprovalService;
+    private final PaymentCancelService paymentCancelService;
 
     @PostMapping
     public PaymentResponse prepare(@RequestHeader("X-Member-Id") Long memberId, @RequestBody PreparePaymentRequest request) {
         Payment payment = paymentService.prepare(request.orderId(), memberId);
+        return PaymentResponse.from(payment);
+    }
+
+    @GetMapping("/{paymentId}")
+    public PaymentResponse getPayment(@RequestHeader("X-Member-Id") Long memberId, @PathVariable Long paymentId) {
+        Payment payment = paymentService.getPayment(paymentId, memberId);
         return PaymentResponse.from(payment);
     }
 
@@ -34,5 +43,15 @@ public class PaymentController {
         Payment payment = paymentApprovalService.approve(paymentId, memberId, request.paymentKey(), request.amount());
         HttpStatus status = payment.getStatus() == PaymentStatus.UNKNOWN ? HttpStatus.ACCEPTED : HttpStatus.OK;
         return  ResponseEntity.status(status).body(PaymentResponse.from(payment));
+    }
+
+    @PostMapping("/{paymentId}/cancel")
+    public PaymentResponse cancel(
+            @RequestHeader("X-Member-Id") Long memberId,
+            @PathVariable Long paymentId,
+            @RequestBody CancelPaymentRequest request
+    ) {
+        Payment payment = paymentCancelService.cancel(paymentId, memberId, request.cancelReason());
+        return PaymentResponse.from(payment);
     }
 }
