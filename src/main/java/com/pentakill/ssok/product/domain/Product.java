@@ -52,7 +52,7 @@ public class Product {
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updatedAt", nullable = false, updatable = true)
+    @Column(name = "updated_at", nullable = false, updatable = true)
     private LocalDateTime updatedAt;
 
     public Product update(String name, String description, String brand, String category, long price, String imageUrl){
