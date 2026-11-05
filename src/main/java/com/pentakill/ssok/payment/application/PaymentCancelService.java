@@ -33,9 +33,11 @@ public class PaymentCancelService {
         if (cancelReason == null || cancelReason.isBlank() || cancelReason.length() > 200) {
             throw new IllegalArgumentException("취소 사유는 1~200자여야 합니다.");
         }
+        // PG 취소 전에 본인의 결제 완료 주문인지 확인한다.
         orderPaymentUpdater.requirePaidOrder(payment.getOrderId(), memberId);
         paymentGateway.cancel(payment.getPaymentKey(), cancelReason);
         Payment canceled = paymentService.completeCancel(payment.getId(), cancelReason, LocalDateTime.now());
+        // 주문 취소와 재고 복구는 결제 상태 변경과 같은 DB 트랜잭션에 포함한다.
         orderPaymentUpdater.cancelAndRestore(payment.getOrderId(), memberId);
         return canceled;
     }
