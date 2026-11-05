@@ -5,6 +5,7 @@ import com.pentakill.ssok.order.domain.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -21,6 +22,11 @@ public class OrderRepositoryImpl implements OrderRepository {
     @Override
     public Optional<Order> findById(Long id) {
         return orderJpaRepository.findById(id);
+    }
+
+    @Override
+    public List<Order> findAllByMemberIdAndDeletedFalse(Long memberId) {
+        return orderJpaRepository.findAllByMemberIdAndDeletedFalse(memberId);
     }
 }
 

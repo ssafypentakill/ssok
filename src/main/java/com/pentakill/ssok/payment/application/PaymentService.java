@@ -16,6 +16,7 @@ public class PaymentService {
 
     private final OrderReader orderReader;
     private final PaymentRepository paymentRepository;
+    private final OrderPaymentUpdater orderPaymentUpdater;
 
     @Transactional
     public Payment prepare(Long orderId, Long memberId) {
@@ -45,7 +46,11 @@ public class PaymentService {
                 .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
 
         switch (result) {
-            case APPROVED -> payment.approve(approvedAt);
+            case APPROVED -> {
+                payment.approve(approvedAt);
+                // 결제 승인과 주문 PAID 변경을 같은 DB 트랜잭션에 반영한다.
+                orderPaymentUpdater.markPaid(payment.getOrderId());
+            }
             case REJECTED -> payment.fail();
             case UNKNOWN -> payment.markUnknown();
             case null -> throw  new IllegalArgumentException("PG 결과는 필수입니다.");
@@ -58,9 +63,24 @@ public class PaymentService {
         return findOwnedPayment(paymentId, memberId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Payment findCancelablePayment(Long paymentId, Long memberId) {
-        Payment payment = findOwnedPayment(paymentId, memberId);
+        // 취소 중 같은 결제가 다시 취소되지 않도록 결제 행을 잠근다.
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .filter(found -> found.getMemberId().equals(memberId))
+                .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
+        if (payment.getStatus() != PaymentStatus.APPROVED) {
+            throw new IllegalStateException("승인된 결제만 취소할 수 있습니다. 현재 상태: " + payment.getStatus());
+        }
+        return payment;
+    }
+
+    @Transactional
+    public Payment findCancelablePaymentByOrderId(Long orderId, Long memberId) {
+        // 주문 ID로 취소할 때도 동일한 결제 행 잠금을 사용한다.
+        Payment payment = paymentRepository.findByOrderIdForUpdate(orderId)
+                .filter(found -> found.getMemberId().equals(memberId))
+                .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
         if (payment.getStatus() != PaymentStatus.APPROVED) {
             throw new IllegalStateException("승인된 결제만 취소할 수 있습니다. 현재 상태: " + payment.getStatus());
         }

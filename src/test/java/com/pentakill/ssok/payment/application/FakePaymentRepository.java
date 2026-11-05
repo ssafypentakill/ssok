@@ -36,6 +36,16 @@ class FakePaymentRepository implements PaymentRepository {
                 .findFirst();
     }
 
+    @Override
+    public Optional<Payment> findByIdForUpdate(Long id) {
+        return findById(id);
+    }
+
+    @Override
+    public Optional<Payment> findByOrderIdForUpdate(Long orderId) {
+        return findByOrderId(orderId);
+    }
+
     int count() {
         return payments.size();
     }

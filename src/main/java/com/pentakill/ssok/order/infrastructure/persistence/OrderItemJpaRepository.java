@@ -1,0 +1,11 @@
+package com.pentakill.ssok.order.infrastructure.persistence;
+
+import com.pentakill.ssok.order.domain.OrderItem;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface OrderItemJpaRepository extends JpaRepository<OrderItem, Long> {
+
+    List<OrderItem> findAllByOrderIdOrderByIdAsc(Long orderId);
+}

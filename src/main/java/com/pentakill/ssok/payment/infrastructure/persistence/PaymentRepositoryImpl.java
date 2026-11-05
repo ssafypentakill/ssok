@@ -27,4 +27,14 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     public Optional<Payment> findByOrderId(Long orderId) {
         return paymentJpaRepository.findByOrderId(orderId);
     }
+
+    @Override
+    public Optional<Payment> findByIdForUpdate(Long id) {
+        return paymentJpaRepository.findByIdForUpdate(id);
+    }
+
+    @Override
+    public Optional<Payment> findByOrderIdForUpdate(Long orderId) {
+        return paymentJpaRepository.findByOrderIdForUpdate(orderId);
+    }
 }

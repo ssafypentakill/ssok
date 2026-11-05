@@ -57,7 +57,7 @@ class PaymentApprovalServiceTest {
     }
 
     private PaymentApprovalService serviceWith(PgApprovalResult pgResult) {
-        PaymentService paymentService = new PaymentService(orderId -> Optional.empty(), paymentRepository);
+        PaymentService paymentService = new PaymentService(orderId -> Optional.empty(), paymentRepository, org.mockito.Mockito.mock(OrderPaymentUpdater.class));
         PaymentGateway paymentGateway = new PaymentGateway() {
             @Override
             public PgApprovalResult approve(String paymentKey, Long orderId, long amount) {
