@@ -28,12 +28,13 @@ class PaymentCancelServiceTest {
     private FakePaymentRepository paymentRepository;
     private AtomicInteger pgCancelCalls;
     private PaymentCancelService service;
+    private OrderPaymentUpdater orderUpdater;
 
     @BeforeEach
     void setUp() {
         paymentRepository = new FakePaymentRepository();
         pgCancelCalls = new AtomicInteger();
-        PaymentService paymentService = new PaymentService(orderId -> Optional.empty(), paymentRepository);
+        PaymentService paymentService = new PaymentService(orderId -> Optional.empty(), paymentRepository, org.mockito.Mockito.mock(OrderPaymentUpdater.class));
         PaymentGateway paymentGateway = new PaymentGateway() {
             @Override
             public PgApprovalResult approve(String paymentKey, Long orderId, long amount) {
@@ -45,7 +46,8 @@ class PaymentCancelServiceTest {
                 pgCancelCalls.incrementAndGet();
             }
         };
-        service = new PaymentCancelService(paymentService, paymentGateway);
+        orderUpdater = org.mockito.Mockito.mock(OrderPaymentUpdater.class);
+        service = new PaymentCancelService(paymentService, paymentGateway, orderUpdater);
     }
 
     @Test
@@ -57,6 +59,31 @@ class PaymentCancelServiceTest {
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
         assertThat(payment.getCancelReason()).isEqualTo(CANCEL_REASON);
+        assertThat(pgCancelCalls.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("주문 ID로 취소하면 주문 상태와 재고 복구를 요청한다")
+    void cancelsByOrderIdAndRestoresOrder() {
+        Payment saved = savedPayment(PaymentStatus.APPROVED);
+
+        Payment canceled = service.cancelByOrderId(ORDER_ID, MEMBER_ID, CANCEL_REASON);
+
+        assertThat(canceled).isSameAs(saved);
+        assertThat(canceled.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+        assertThat(pgCancelCalls.get()).isEqualTo(1);
+        org.mockito.Mockito.verify(orderUpdater).requirePaidOrder(ORDER_ID, MEMBER_ID);
+        org.mockito.Mockito.verify(orderUpdater).cancelAndRestore(ORDER_ID, MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("같은 주문을 다시 취소하면 PG를 재호출하지 않는다")
+    void rejectsRepeatedOrderCancellation() {
+        savedPayment(PaymentStatus.APPROVED);
+        service.cancelByOrderId(ORDER_ID, MEMBER_ID, CANCEL_REASON);
+
+        assertThatThrownBy(() -> service.cancelByOrderId(ORDER_ID, MEMBER_ID, CANCEL_REASON))
+                .isInstanceOf(IllegalStateException.class);
         assertThat(pgCancelCalls.get()).isEqualTo(1);
     }
 

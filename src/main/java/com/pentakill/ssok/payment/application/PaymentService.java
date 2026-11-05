@@ -16,6 +16,7 @@ public class PaymentService {
 
     private final OrderReader orderReader;
     private final PaymentRepository paymentRepository;
+    private final OrderPaymentUpdater orderPaymentUpdater;
 
     @Transactional
     public Payment prepare(Long orderId, Long memberId) {
@@ -45,7 +46,10 @@ public class PaymentService {
                 .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
 
         switch (result) {
-            case APPROVED -> payment.approve(approvedAt);
+            case APPROVED -> {
+                payment.approve(approvedAt);
+                orderPaymentUpdater.markPaid(payment.getOrderId());
+            }
             case REJECTED -> payment.fail();
             case UNKNOWN -> payment.markUnknown();
             case null -> throw  new IllegalArgumentException("PG 결과는 필수입니다.");
@@ -58,9 +62,22 @@ public class PaymentService {
         return findOwnedPayment(paymentId, memberId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Payment findCancelablePayment(Long paymentId, Long memberId) {
-        Payment payment = findOwnedPayment(paymentId, memberId);
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .filter(found -> found.getMemberId().equals(memberId))
+                .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
+        if (payment.getStatus() != PaymentStatus.APPROVED) {
+            throw new IllegalStateException("승인된 결제만 취소할 수 있습니다. 현재 상태: " + payment.getStatus());
+        }
+        return payment;
+    }
+
+    @Transactional
+    public Payment findCancelablePaymentByOrderId(Long orderId, Long memberId) {
+        Payment payment = paymentRepository.findByOrderIdForUpdate(orderId)
+                .filter(found -> found.getMemberId().equals(memberId))
+                .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
         if (payment.getStatus() != PaymentStatus.APPROVED) {
             throw new IllegalStateException("승인된 결제만 취소할 수 있습니다. 현재 상태: " + payment.getStatus());
         }

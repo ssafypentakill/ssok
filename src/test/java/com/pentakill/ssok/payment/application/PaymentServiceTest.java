@@ -219,7 +219,7 @@ class PaymentServiceTest {
 
     private PaymentService serviceWith(OrderInfo order) {
         OrderReader orderReader = orderId -> Optional.ofNullable(order);
-        return new PaymentService(orderReader, paymentRepository);
+        return new PaymentService(orderReader, paymentRepository, org.mockito.Mockito.mock(OrderPaymentUpdater.class));
     }
 
     private OrderInfo payableOrder() {
