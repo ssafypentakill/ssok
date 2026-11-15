@@ -6,5 +6,6 @@ public enum PaymentStatus {
     APPROVED, //승인 완료
     FAILED, //승인 실패 (PG 거절)
     UNKNOWN, //결과를 모름 (타임아웃)
+    CANCELING, //PG에 취소 요청 중
     CANCELED //취소 완료
 }

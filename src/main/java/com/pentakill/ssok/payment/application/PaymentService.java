@@ -34,7 +34,7 @@ public class PaymentService {
 
     @Transactional
     public Payment startApproval(Long paymentId, Long memberId, String paymentKey, long amount) {
-        Payment payment = findOwnedPayment(paymentId, memberId);
+        Payment payment = findOwnedPaymentForUpdate(paymentId, memberId);
         payment.startApproval(paymentKey, amount);
         return payment;
     }
@@ -58,20 +58,18 @@ public class PaymentService {
         return findOwnedPayment(paymentId, memberId);
     }
 
-    @Transactional(readOnly = true)
-    public Payment findCancelablePayment(Long paymentId, Long memberId) {
-        Payment payment = findOwnedPayment(paymentId, memberId);
-        if (payment.getStatus() != PaymentStatus.APPROVED) {
-            throw new IllegalStateException("승인된 결제만 취소할 수 있습니다. 현재 상태: " + payment.getStatus());
-        }
+    @Transactional
+    public Payment startCancel(Long paymentId, Long memberId, String cancelReason) {
+        Payment payment = findOwnedPaymentForUpdate(paymentId, memberId);
+        payment.startCancel(cancelReason);
         return payment;
     }
 
     @Transactional
-    public Payment completeCancel(Long paymentId, String cancelReason, LocalDateTime canceledAt) {
+    public Payment completeCancel(Long paymentId, LocalDateTime canceledAt) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
-        payment.cancel(cancelReason, canceledAt);
+        payment.completeCancel(canceledAt);
         return payment;
     }
 
@@ -81,9 +79,17 @@ public class PaymentService {
                 .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
     }
 
+    private Payment findOwnedPaymentForUpdate(Long paymentId, Long memberId) {
+        return paymentRepository.findByIdForUpdate(paymentId)
+                .filter(payment -> payment.getMemberId().equals(memberId))
+                .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
+    }
+
     private Payment validateReusable(Payment payment) {
         PaymentStatus status = payment.getStatus();
-        if (status == PaymentStatus.APPROVED || status == PaymentStatus.CANCELED) {
+        if (status == PaymentStatus.APPROVED
+                || status == PaymentStatus.CANCELING
+                || status == PaymentStatus.CANCELED) {
             throw new IllegalStateException("이미 처리된 결제입니다.");
         }
         return payment;
