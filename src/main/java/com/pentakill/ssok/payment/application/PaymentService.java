@@ -34,7 +34,7 @@ public class PaymentService {
 
     @Transactional
     public Payment startApproval(Long paymentId, Long memberId, String paymentKey, long amount) {
-        Payment payment = findOwnedPayment(paymentId, memberId);
+        Payment payment = findOwnedPaymentForUpdate(paymentId, memberId);
         payment.startApproval(paymentKey, amount);
         return payment;
     }
@@ -77,6 +77,12 @@ public class PaymentService {
 
     private Payment findOwnedPayment(Long paymentId, Long memberId) {
         return paymentRepository.findById(paymentId)
+                .filter(payment -> payment.getMemberId().equals(memberId))
+                .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
+    }
+
+    private Payment findOwnedPaymentForUpdate(Long paymentId, Long memberId) {
+        return paymentRepository.findByIdForUpdate(paymentId)
                 .filter(payment -> payment.getMemberId().equals(memberId))
                 .orElseThrow(() -> new EntityNotFoundException("결제를 찾을 수 없습니다."));
     }
