@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.pentakill.ssok.payment.domain.Payment;
 import com.pentakill.ssok.payment.domain.PaymentStatus;
+import com.pentakill.ssok.payment.infrastructure.persistence.PaymentAttemptJpaRepository;
 import com.pentakill.ssok.payment.infrastructure.persistence.PaymentJpaRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -49,6 +51,9 @@ class PaymentConcurrencyTest {
     private PaymentJpaRepository paymentJpaRepository;
 
     @Autowired
+    private PaymentAttemptJpaRepository paymentAttemptJpaRepository;
+
+    @Autowired
     private CountingPaymentGateway paymentGateway;
 
     private Long paymentId;
@@ -62,14 +67,17 @@ class PaymentConcurrencyTest {
 
     @AfterEach
     void tearDown() {
+        paymentAttemptJpaRepository.findAll().stream()
+                .filter(attempt -> attempt.isFor(paymentId))
+                .forEach(paymentAttemptJpaRepository::delete);
         paymentJpaRepository.deleteById(paymentId);
     }
 
     @Test
-    @DisplayName("같은 결제를 동시에 10번 승인해도 PG는 한 번만 불리고 하나만 성공한다")
+    @DisplayName("같은 결제를 서로 다른 멱등키로 동시에 10번 승인해도 PG는 한 번만 불리고 하나만 성공한다")
     void approvesOnlyOnceUnderConcurrentRequests() throws Exception {
-        List<Boolean> results = runConcurrently(
-                () -> paymentApprovalService.approve(paymentId, MEMBER_ID, "pay_concurrent", AMOUNT));
+        List<Boolean> results = runConcurrently(() -> paymentApprovalService.approve(
+                paymentId, MEMBER_ID, UUID.randomUUID().toString(), "pay_concurrent", AMOUNT));
 
         assertThat(paymentGateway.approveCalls()).isEqualTo(1);
         assertThat(results).filteredOn(success -> success).hasSize(1);
@@ -80,7 +88,7 @@ class PaymentConcurrencyTest {
     @Test
     @DisplayName("승인된 결제를 동시에 10번 취소해도 PG 취소는 한 번만 불리고 하나만 성공한다")
     void cancelsOnlyOnceUnderConcurrentRequests() throws Exception {
-        paymentApprovalService.approve(paymentId, MEMBER_ID, "pay_concurrent", AMOUNT);
+        paymentApprovalService.approve(paymentId, MEMBER_ID, UUID.randomUUID().toString(), "pay_concurrent", AMOUNT);
 
         List<Boolean> results = runConcurrently(
                 () -> paymentCancelService.cancel(paymentId, MEMBER_ID, "고객 요청"));

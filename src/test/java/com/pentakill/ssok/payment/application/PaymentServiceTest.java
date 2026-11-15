@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.pentakill.ssok.payment.domain.Payment;
+import com.pentakill.ssok.payment.domain.PaymentAttemptStatus;
 import com.pentakill.ssok.payment.domain.PaymentStatus;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDateTime;
@@ -23,14 +24,18 @@ class PaymentServiceTest {
     private static final long OTHER_MEMBER_ID = 20L;
     private static final long AMOUNT = 30_000L;
     private static final String PAYMENT_KEY = "pay_test_key";
+    private static final String IDEMPOTENCY_KEY = "idem-1";
+    private static final LocalDateTime REQUESTED_AT = LocalDateTime.of(2026, 10, 27, 13, 59);
     private static final LocalDateTime APPROVED_AT = LocalDateTime.of(2026, 10, 27, 14, 0);
     private static final LocalDateTime CANCELED_AT = LocalDateTime.of(2026, 10, 28, 10, 0);
 
     private FakePaymentRepository paymentRepository;
+    private FakePaymentAttemptRepository paymentAttemptRepository;
 
     @BeforeEach
     void setUp() {
         paymentRepository = new FakePaymentRepository();
+        paymentAttemptRepository = new FakePaymentAttemptRepository();
     }
 
     @Nested
@@ -113,10 +118,15 @@ class PaymentServiceTest {
             PaymentService service = serviceWith(payableOrder());
             Payment saved = savedPaymentWithStatus(PaymentStatus.READY);
 
-            Payment payment = service.startApproval(saved.getId(), MEMBER_ID, PAYMENT_KEY, AMOUNT);
+            ApprovalStart start = service.startApproval(
+                    saved.getId(), MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT, REQUESTED_AT);
 
-            assertThat(payment.getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS);
-            assertThat(payment.getPaymentKey()).isEqualTo(PAYMENT_KEY);
+            assertThat(start.payment().getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS);
+            assertThat(start.payment().getPaymentKey()).isEqualTo(PAYMENT_KEY);
+            assertThat(paymentAttemptRepository.findById(start.attemptId())).hasValueSatisfying(attempt -> {
+                assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.IN_PROGRESS);
+                assertThat(attempt.getRequestedAt()).isEqualTo(REQUESTED_AT);
+            });
         }
 
         @Test
@@ -124,7 +134,7 @@ class PaymentServiceTest {
         void rejectsMissingPayment() {
             PaymentService service = serviceWith(payableOrder());
 
-            assertThatThrownBy(() -> service.startApproval(999L, MEMBER_ID, PAYMENT_KEY, AMOUNT))
+            assertThatThrownBy(() -> service.startApproval(999L, MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT, REQUESTED_AT))
                     .isInstanceOf(EntityNotFoundException.class);
         }
 
@@ -134,7 +144,7 @@ class PaymentServiceTest {
             PaymentService service = serviceWith(payableOrder());
             Payment saved = savedPaymentWithStatus(PaymentStatus.READY);
 
-            assertThatThrownBy(() -> service.startApproval(saved.getId(), OTHER_MEMBER_ID, PAYMENT_KEY, AMOUNT))
+            assertThatThrownBy(() -> service.startApproval(saved.getId(), OTHER_MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT, REQUESTED_AT))
                     .isInstanceOf(EntityNotFoundException.class);
         }
 
@@ -144,9 +154,11 @@ class PaymentServiceTest {
             PaymentService service = serviceWith(payableOrder());
             Payment saved = savedPaymentWithStatus(PaymentStatus.READY);
 
-            assertThatThrownBy(() -> service.startApproval(saved.getId(), MEMBER_ID, PAYMENT_KEY, AMOUNT - 1))
+            assertThatThrownBy(() -> service.startApproval(
+                    saved.getId(), MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT - 1, REQUESTED_AT))
                     .isInstanceOf(IllegalArgumentException.class);
             assertThat(saved.getStatus()).isEqualTo(PaymentStatus.READY);
+            assertThat(paymentAttemptRepository.findAll()).isEmpty();
         }
     }
 
@@ -163,20 +175,23 @@ class PaymentServiceTest {
         @DisplayName("PG의 대답에 맞는 상태로 바뀐다")
         void changesStatusByResult(PgApprovalResult result, PaymentStatus expected) {
             PaymentService service = serviceWith(payableOrder());
-            Payment saved = savedPaymentWithStatus(PaymentStatus.IN_PROGRESS);
+            ApprovalStart start = startedApproval(service);
 
-            Payment payment = service.completeApproval(saved.getId(), result, APPROVED_AT);
+            Payment payment = service.completeApproval(start.payment().getId(), start.attemptId(), result, APPROVED_AT);
 
             assertThat(payment.getStatus()).isEqualTo(expected);
+            assertThat(paymentAttemptRepository.findById(start.attemptId()))
+                    .hasValueSatisfying(attempt -> assertThat(attempt.getCompletedAt()).isEqualTo(APPROVED_AT));
         }
 
         @Test
         @DisplayName("승인되면 승인 시각이 저장된다")
         void savesApprovedAt() {
             PaymentService service = serviceWith(payableOrder());
-            Payment saved = savedPaymentWithStatus(PaymentStatus.IN_PROGRESS);
+            ApprovalStart start = startedApproval(service);
 
-            Payment payment = service.completeApproval(saved.getId(), PgApprovalResult.APPROVED, APPROVED_AT);
+            Payment payment = service.completeApproval(
+                    start.payment().getId(), start.attemptId(), PgApprovalResult.APPROVED, APPROVED_AT);
 
             assertThat(payment.getApprovedAt()).isEqualTo(APPROVED_AT);
         }
@@ -219,7 +234,12 @@ class PaymentServiceTest {
 
     private PaymentService serviceWith(OrderInfo order) {
         OrderReader orderReader = orderId -> Optional.ofNullable(order);
-        return new PaymentService(orderReader, paymentRepository);
+        return new PaymentService(orderReader, paymentRepository, paymentAttemptRepository);
+    }
+
+    private ApprovalStart startedApproval(PaymentService service) {
+        Payment saved = savedPaymentWithStatus(PaymentStatus.READY);
+        return service.startApproval(saved.getId(), MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT, REQUESTED_AT);
     }
 
     private OrderInfo payableOrder() {

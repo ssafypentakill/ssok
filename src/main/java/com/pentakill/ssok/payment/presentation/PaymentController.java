@@ -37,12 +37,14 @@ public class PaymentController {
     @PostMapping("/{paymentId}/approve")
     public ResponseEntity<PaymentResponse> approve(
             @RequestHeader("X-Member-Id") Long memberId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @PathVariable Long paymentId,
             @RequestBody ApprovePaymentRequest request
-            ) {
-        Payment payment = paymentApprovalService.approve(paymentId, memberId, request.paymentKey(), request.amount());
+    ) {
+        Payment payment = paymentApprovalService.approve(
+                paymentId, memberId, idempotencyKey, request.paymentKey(), request.amount());
         HttpStatus status = payment.getStatus() == PaymentStatus.UNKNOWN ? HttpStatus.ACCEPTED : HttpStatus.OK;
-        return  ResponseEntity.status(status).body(PaymentResponse.from(payment));
+        return ResponseEntity.status(status).body(PaymentResponse.from(payment));
     }
 
     @PostMapping("/{paymentId}/cancel")
