@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -46,10 +47,20 @@ public class PaymentService {
     ) {
         PaymentAttempt.validateIdempotencyKey(idempotencyKey);
         Payment payment = findOwnedPaymentForUpdate(paymentId, memberId);
+        payment.validateAmount(amount);
+
+        Optional<PaymentAttempt> previous = paymentAttemptRepository.findByIdempotencyKey(idempotencyKey);
+        if (previous.isPresent()) {
+            if (!previous.get().isFor(paymentId)) {
+                throw new IllegalStateException("다른 결제에 이미 사용된 멱등키입니다.");
+            }
+            return ApprovalStart.replayed(payment);
+        }
+
         payment.startApproval(paymentKey, amount);
         PaymentAttempt attempt = paymentAttemptRepository.save(
                 PaymentAttempt.start(payment, idempotencyKey, paymentKey, requestedAt));
-        return new ApprovalStart(payment, attempt.getId());
+        return ApprovalStart.started(payment, attempt.getId());
     }
 
     @Transactional

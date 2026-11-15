@@ -16,6 +16,9 @@ public class PaymentApprovalService {
     public Payment approve(Long paymentId, Long memberId, String idempotencyKey, String paymentKey, long amount) {
         ApprovalStart start = paymentService.startApproval(
                 paymentId, memberId, idempotencyKey, paymentKey, amount, LocalDateTime.now());
+        if (start.replayed()) {
+            return start.payment();
+        }
         PgApprovalResult result = paymentGateway.approve(paymentKey, start.payment().getOrderId(), amount);
         return paymentService.completeApproval(paymentId, start.attemptId(), result, LocalDateTime.now());
     }

@@ -87,6 +87,46 @@ class PaymentApprovalServiceTest {
     }
 
     @Test
+    @DisplayName("같은 멱등키로 다시 승인하면 PG를 다시 부르지 않고 지금 결제 상태를 돌려준다")
+    void replaysSameIdempotencyKey() {
+        Payment saved = paymentRepository.save(Payment.ready(ORDER_ID, MEMBER_ID, AMOUNT));
+        PaymentApprovalService service = serviceWith(PgApprovalResult.APPROVED);
+        service.approve(saved.getId(), MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT);
+
+        Payment replayed = service.approve(saved.getId(), MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT);
+
+        assertThat(replayed.getStatus()).isEqualTo(PaymentStatus.APPROVED);
+        assertThat(pgCalls.get()).isEqualTo(1);
+        assertThat(paymentAttemptRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("같은 멱등키라도 금액이 다르면 거절한다")
+    void rejectsDifferentAmountEvenWithSameKey() {
+        Payment saved = paymentRepository.save(Payment.ready(ORDER_ID, MEMBER_ID, AMOUNT));
+        PaymentApprovalService service = serviceWith(PgApprovalResult.APPROVED);
+        service.approve(saved.getId(), MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT);
+
+        assertThatThrownBy(() -> service.approve(saved.getId(), MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT - 1))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(pgCalls.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("다른 결제에 쓰인 멱등키로 승인하면 PG를 부르지 않고 거절한다")
+    void rejectsKeyUsedByOtherPayment() {
+        Payment first = paymentRepository.save(Payment.ready(ORDER_ID, MEMBER_ID, AMOUNT));
+        Payment second = paymentRepository.save(Payment.ready(ORDER_ID + 1, MEMBER_ID, AMOUNT));
+        PaymentApprovalService service = serviceWith(PgApprovalResult.APPROVED);
+        service.approve(first.getId(), MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT);
+
+        assertThatThrownBy(() -> service.approve(second.getId(), MEMBER_ID, IDEMPOTENCY_KEY, PAYMENT_KEY, AMOUNT))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(second.getStatus()).isEqualTo(PaymentStatus.READY);
+        assertThat(pgCalls.get()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("멱등키가 없으면 결제를 바꾸지 않고 PG도 부르지 않는다")
     void rejectsMissingIdempotencyKey() {
         Payment saved = paymentRepository.save(Payment.ready(ORDER_ID, MEMBER_ID, AMOUNT));

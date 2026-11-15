@@ -43,7 +43,8 @@ public class PaymentController {
     ) {
         Payment payment = paymentApprovalService.approve(
                 paymentId, memberId, idempotencyKey, request.paymentKey(), request.amount());
-        HttpStatus status = payment.getStatus() == PaymentStatus.UNKNOWN ? HttpStatus.ACCEPTED : HttpStatus.OK;
+        // 결과를 아직 모르면(처리 중이거나 PG 응답이 없었으면) 202로 알려 준다.
+        HttpStatus status = isPending(payment.getStatus()) ? HttpStatus.ACCEPTED : HttpStatus.OK;
         return ResponseEntity.status(status).body(PaymentResponse.from(payment));
     }
 
@@ -55,5 +56,9 @@ public class PaymentController {
     ) {
         Payment payment = paymentCancelService.cancel(paymentId, memberId, request.cancelReason());
         return PaymentResponse.from(payment);
+    }
+
+    private boolean isPending(PaymentStatus status) {
+        return status == PaymentStatus.IN_PROGRESS || status == PaymentStatus.UNKNOWN;
     }
 }
