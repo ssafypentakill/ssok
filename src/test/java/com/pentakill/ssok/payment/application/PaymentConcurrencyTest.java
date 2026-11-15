@@ -43,6 +43,9 @@ class PaymentConcurrencyTest {
     private PaymentApprovalService paymentApprovalService;
 
     @Autowired
+    private PaymentCancelService paymentCancelService;
+
+    @Autowired
     private PaymentJpaRepository paymentJpaRepository;
 
     @Autowired
@@ -72,6 +75,20 @@ class PaymentConcurrencyTest {
         assertThat(results).filteredOn(success -> success).hasSize(1);
         assertThat(paymentJpaRepository.findById(paymentId).orElseThrow().getStatus())
                 .isEqualTo(PaymentStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("승인된 결제를 동시에 10번 취소해도 PG 취소는 한 번만 불리고 하나만 성공한다")
+    void cancelsOnlyOnceUnderConcurrentRequests() throws Exception {
+        paymentApprovalService.approve(paymentId, MEMBER_ID, "pay_concurrent", AMOUNT);
+
+        List<Boolean> results = runConcurrently(
+                () -> paymentCancelService.cancel(paymentId, MEMBER_ID, "고객 요청"));
+
+        assertThat(paymentGateway.cancelCalls()).isEqualTo(1);
+        assertThat(results).filteredOn(success -> success).hasSize(1);
+        assertThat(paymentJpaRepository.findById(paymentId).orElseThrow().getStatus())
+                .isEqualTo(PaymentStatus.CANCELED);
     }
 
     private List<Boolean> runConcurrently(Callable<Payment> task) throws Exception {
