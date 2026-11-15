@@ -86,6 +86,21 @@ class PaymentConcurrencyTest {
     }
 
     @Test
+    @DisplayName("같은 멱등키로 동시에 10번 승인하면 PG는 한 번만 불리고, 나머지는 오류 없이 결제 상태를 돌려받는다")
+    void replaysSameKeyUnderConcurrentRequests() throws Exception {
+        String idempotencyKey = UUID.randomUUID().toString();
+
+        List<Boolean> results = runConcurrently(() -> paymentApprovalService.approve(
+                paymentId, MEMBER_ID, idempotencyKey, "pay_concurrent", AMOUNT));
+
+        assertThat(paymentGateway.approveCalls()).isEqualTo(1);
+        assertThat(results).containsOnly(true);
+        assertThat(paymentAttemptJpaRepository.findByIdempotencyKey(idempotencyKey)).isPresent();
+        assertThat(paymentJpaRepository.findById(paymentId).orElseThrow().getStatus())
+                .isEqualTo(PaymentStatus.APPROVED);
+    }
+
+    @Test
     @DisplayName("승인된 결제를 동시에 10번 취소해도 PG 취소는 한 번만 불리고 하나만 성공한다")
     void cancelsOnlyOnceUnderConcurrentRequests() throws Exception {
         paymentApprovalService.approve(paymentId, MEMBER_ID, UUID.randomUUID().toString(), "pay_concurrent", AMOUNT);
