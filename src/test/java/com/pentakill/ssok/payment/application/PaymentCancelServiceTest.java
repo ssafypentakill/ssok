@@ -33,7 +33,7 @@ class PaymentCancelServiceTest {
     void setUp() {
         paymentRepository = new FakePaymentRepository();
         pgCancelCalls = new AtomicInteger();
-        PaymentService paymentService = new PaymentService(orderId -> Optional.empty(), paymentRepository);
+        PaymentService paymentService = new PaymentService(orderId -> Optional.empty(), paymentRepository, new FakePaymentAttemptRepository());
         PaymentGateway paymentGateway = new PaymentGateway() {
             @Override
             public PgApprovalResult approve(String paymentKey, Long orderId, long amount) {

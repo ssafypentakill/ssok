@@ -83,11 +83,16 @@ public class Payment {
         if (paymentKey == null || paymentKey.isBlank()) {
             throw new IllegalArgumentException("결제 키는 필수입니다.");
         }
+        validateAmount(requestAmount);
+        this.paymentKey = paymentKey;
+        this.status = PaymentStatus.IN_PROGRESS;
+    }
+
+    // 요청 금액을 믿지 않고, 저장된 금액과 같은지 확인한다.
+    public void validateAmount(long requestAmount) {
         if (requestAmount != amount) {
             throw new IllegalArgumentException("결제 금액이 일치하지 않습니다.");
         }
-        this.paymentKey = paymentKey;
-        this.status = PaymentStatus.IN_PROGRESS;
     }
 
     public void approve(LocalDateTime approvedAt) {
