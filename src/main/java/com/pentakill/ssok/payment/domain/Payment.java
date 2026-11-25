@@ -109,17 +109,25 @@ public class Payment {
         this.status = PaymentStatus.UNKNOWN;
     }
 
-    public void cancel(String cancelReason, LocalDateTime canceledAt) {
+    // PG에 취소를 요청하기 전에 먼저 CANCELING으로 바꿔, 동시에 들어온 다른 취소 요청이 PG를 부르지 못하게 한다.
+    public void startCancel(String cancelReason) {
         if (status != PaymentStatus.APPROVED) {
             throw new IllegalStateException("승인된 결제만 취소할 수 있습니다. 현재 상태: " + status);
         }
         if (cancelReason == null || cancelReason.isBlank()) {
             throw new IllegalArgumentException("취소 사유는 필수입니다.");
         }
+        this.cancelReason = cancelReason;
+        this.status = PaymentStatus.CANCELING;
+    }
+
+    public void completeCancel(LocalDateTime canceledAt) {
+        if (status != PaymentStatus.CANCELING) {
+            throw new IllegalStateException("취소 요청 중인 결제가 아닙니다. 현재 상태: " + status);
+        }
         if (canceledAt == null) {
             throw new IllegalArgumentException("취소 시각은 필수입니다.");
         }
-        this.cancelReason = cancelReason;
         this.canceledAt = canceledAt;
         this.status = PaymentStatus.CANCELED;
     }

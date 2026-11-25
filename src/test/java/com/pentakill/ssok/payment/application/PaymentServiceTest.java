@@ -79,7 +79,7 @@ class PaymentServiceTest {
         }
 
         @ParameterizedTest
-        @EnumSource(value = PaymentStatus.class, names = {"APPROVED", "CANCELED"}, mode = EnumSource.Mode.EXCLUDE)
+        @EnumSource(value = PaymentStatus.class, names = {"APPROVED", "CANCELING", "CANCELED"}, mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("끝나지 않은 결제가 있으면 새로 만들지 않고 그 결제를 돌려준다")
         void reusesUnfinishedPayment(PaymentStatus status) {
             PaymentService service = serviceWith(payableOrder());
@@ -92,8 +92,8 @@ class PaymentServiceTest {
         }
 
         @ParameterizedTest
-        @EnumSource(value = PaymentStatus.class, names = {"APPROVED", "CANCELED"})
-        @DisplayName("이미 승인되거나 취소된 결제가 있으면 거절한다")
+        @EnumSource(value = PaymentStatus.class, names = {"APPROVED", "CANCELING", "CANCELED"})
+        @DisplayName("이미 승인되었거나 취소 중이거나 취소된 결제가 있으면 거절한다")
         void rejectsFinishedPayment(PaymentStatus status) {
             PaymentService service = serviceWith(payableOrder());
             savedPaymentWithStatus(status);
@@ -235,9 +235,14 @@ class PaymentServiceTest {
             case APPROVED -> payment.approve(APPROVED_AT);
             case FAILED -> payment.fail();
             case UNKNOWN -> payment.markUnknown();
+            case CANCELING -> {
+                payment.approve(APPROVED_AT);
+                payment.startCancel("고객 요청");
+            }
             case CANCELED -> {
                 payment.approve(APPROVED_AT);
-                payment.cancel("고객 요청", CANCELED_AT);
+                payment.startCancel("고객 요청");
+                payment.completeCancel(CANCELED_AT);
             }
             default -> {
             }

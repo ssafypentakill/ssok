@@ -14,8 +14,8 @@ public class PaymentCancelService {
     private final PaymentGateway paymentGateway;
 
     public Payment cancel(Long paymentId, Long memberId, String cancelReason) {
-        Payment payment = paymentService.findCancelablePayment(paymentId, memberId);
+        Payment payment = paymentService.startCancel(paymentId, memberId, cancelReason);
         paymentGateway.cancel(payment.getPaymentKey(), cancelReason);
-        return paymentService.completeCancel(paymentId, cancelReason, LocalDateTime.now());
+        return paymentService.completeCancel(paymentId, LocalDateTime.now());
     }
 }
